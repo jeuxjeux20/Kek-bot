@@ -61,6 +61,7 @@ namespace Discordconsole
         }
         #endregion
         #region SendAudio
+        #region NoCancel
         public bool? SendAudio(Channel voiceChannel, IAudioClient _vClient, int quality = 20)
         {
             bool isFinished = false;
@@ -92,7 +93,9 @@ namespace Discordconsole
             }
             return isFinished;
         }
+        #endregion
 
+        #region WithCancel
         public bool? SendAudio(Channel voiceChannel, IAudioClient _vClient, CancellationTokenSource cancel, int quality = 20)
         {
             bool isFinished = false;
@@ -123,7 +126,8 @@ namespace Discordconsole
                 isFinished = true;
             }
             return isFinished;
-        }
+        } 
+        #endregion
         private CancellationTokenSource token = new CancellationTokenSource();
 
         public async Task<bool?> SendAudioAsync(Channel voiceChannel, IAudioClient _vClient, int quality = 20)
@@ -267,17 +271,18 @@ namespace Discordconsole
                         .Join(voiceChannel);
 
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-
+                        await e.Channel.SendMessage($"```{ex.Message}```");
                     }
                     if (new Random().Next(0, 3) == 1)
                     {
                         await _vClient.Join(voiceChannel);
                         NonBlockingConsole.WriteLine("Is complete : " + isComplete);
-                        if (isComplete == true || (isComplete == null && isComplete != false))
+                        if (isComplete == true || isComplete == null)
                         {
-                            isComplete = false;
+                            isComplete = false;  
+                            token = new CancellationTokenSource();
                             isComplete = await SendAudioAsync(voiceChannel, _vClient, token, 20);
                         }
 
