@@ -262,7 +262,7 @@ namespace Discordconsole
                 }
 
 
-                // my token : "Bot MjIwNTA5MzczODU0Nzc3MzQ0.CrRf3A.owrTKGwdshRLyx5HXrLEIsLkJVY"
+                
                 SendConsole("Connected!");
                 _client.SetGame(new Game($"Keking everyone ! {version}"));
 
