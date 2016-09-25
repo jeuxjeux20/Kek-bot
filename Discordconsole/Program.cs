@@ -38,12 +38,10 @@ namespace Discordconsole
         }
     }
 
-
     class Program
 
     {
-
-
+        #region PreInit
         public readonly string version = "v0.4";
         private bool shutup = false;
         static void Main() => new Program().Start();
@@ -53,16 +51,19 @@ namespace Discordconsole
         {
             NonBlockingConsole.WriteLine(text);
         }
+        #endregion
 
-
-
+        #region Input
 
         private static async Task<string> GetInputAsync()
         {
             return await Task.Run(() => Console.ReadLine());
         }
+        #endregion
+        #region SendAudio
         public bool? SendAudio(Channel voiceChannel, IAudioClient _vClient, int quality = 20)
         {
+            bool isFinished = false;
             var channelCount = _client.GetService<AudioService>().Config.Channels; // Get the number of AudioChannels our AudioService has been configured to use.
             var OutFormat = new WaveFormat(48000, 16, channelCount); // Create a new Output Format, using the spec that Discord will accept, and with the number of channels that our client supports.
             MemoryStream mp3file = new MemoryStream(Properties.Resources.topkek);
@@ -85,26 +86,67 @@ namespace Discordconsole
                     }
 
                     _vClient.Send(buffer, 0, blockSize); // Send the buffer to Discord
+
                 }
+                isFinished = true;
             }
-            return true;
+            return isFinished;
         }
+
+        public bool? SendAudio(Channel voiceChannel, IAudioClient _vClient, CancellationTokenSource cancel, int quality = 20)
+        {
+            bool isFinished = false;
+            var channelCount = _client.GetService<AudioService>().Config.Channels; // Get the number of AudioChannels our AudioService has been configured to use.
+            var OutFormat = new WaveFormat(48000, 16, channelCount); // Create a new Output Format, using the spec that Discord will accept, and with the number of channels that our client supports.
+            MemoryStream mp3file = new MemoryStream(Properties.Resources.topkek);
+
+            using (var MP3Reader = new Mp3FileReader(mp3file)) // Create a new Disposable MP3FileReader, to read audio from the filePath parameter
+            using (var resampler = new MediaFoundationResampler(MP3Reader, OutFormat)) // Create a Disposable Resampler, which will convert the read MP3 data to PCM, using our Output Format
+            {
+                resampler.ResamplerQuality = quality; // Set the quality of the resampler to 20, a good quality
+                int blockSize = OutFormat.AverageBytesPerSecond / 50; // Establish the size of our AudioBuffer
+                byte[] buffer = new byte[blockSize];
+                int byteCount;
+
+                while ((byteCount = resampler.Read(buffer, 0, blockSize)) > 0 && !cancel.IsCancellationRequested) // Read audio into our buffer, and keep a loop open while data is present
+                {
+                    if (byteCount < blockSize)
+                    {
+                        // Incomplete Frame
+                        for (int i = byteCount; i < blockSize; i++)
+                            buffer[i] = 0;
+                    }
+                    if (!cancel.IsCancellationRequested)
+                        _vClient.Send(buffer, 0, blockSize); // Send the buffer to Discord
+
+                }
+                isFinished = true;
+            }
+            return isFinished;
+        }
+        private CancellationTokenSource token = new CancellationTokenSource();
+
         public async Task<bool?> SendAudioAsync(Channel voiceChannel, IAudioClient _vClient, int quality = 20)
         {
 
             return await Task.Run(() => SendAudio(voiceChannel, _vClient, quality));
-
         }
+        public async Task<bool?> SendAudioAsync(Channel voiceChannel, IAudioClient _vClient, CancellationTokenSource cancel, int quality = 20)
+        {
 
+            return await Task.Run(() => SendAudio(voiceChannel, _vClient, cancel, quality));
+        }
+        #endregion
 
         public void Start()
         {
 
+            #region InitClient
 
             _client = new DiscordClient();
+            #endregion
 
-
-
+            #region Commands
             _client.UsingCommands(x =>
             {
                 x.PrefixChar = '$';
@@ -113,6 +155,7 @@ namespace Discordconsole
             });
 
             // -------
+
             _client.GetService<CommandService>().CreateCommand("roll") //create command greet
         .Description("Roll a dice between <from> to <to>") //add description, it will be shown when ~help is used
         .Parameter("From", ParameterType.Required) //as an argument, we have a person we want to greet
@@ -147,6 +190,10 @@ namespace Discordconsole
 
             //sends a message to channel with the given text
         });
+
+
+
+
             _client.GetService<CommandService>().CreateCommand("shutup") //create command greet (totally kek)
         .Description("Says violently to the bot \"SHUT UP PLEASE\"") //add description, it will be shown when ~help is used
         .Alias(new string[] { "stfu", "shutthefuckup" })
@@ -172,7 +219,7 @@ namespace Discordconsole
             Channel voiceChannel = null;
             IAudioClient _vClient = null;
             bool? isComplete = null;
-            
+
             _client.GetService<CommandService>().CreateCommand("stopmusic")
             .Description("Stops the music")
             .Do(async e =>
@@ -180,9 +227,12 @@ namespace Discordconsole
 
                     try
                     {
+                        token.Cancel();
                         await voiceChannel.LeaveAudio();
+
+
                     }
-                    catch(NullReferenceException)
+                    catch (Exception ex) when (ex is TaskCanceledException || ex is NullReferenceException)
                     {
                         await e.Channel.SendMessage("There is no audio playing for now");
                     }
@@ -190,10 +240,10 @@ namespace Discordconsole
                     {
                         await e.Channel.SendMessage("Audio stopped.");
                     }
-                    
-                   });
 
-            
+                });
+            #endregion
+            #region MessageReceivedEvent
             _client.MessageReceived += async (s, e) =>
             {
                 //if (!e.Message.IsAuthor)
@@ -208,8 +258,9 @@ namespace Discordconsole
 
                     try
                     {
-                        voiceChannel = _client.FindServers("Idle Dogecoin Miner - dev team").FirstOrDefault().VoiceChannels.ToList().Find((Channel c) =>
+                        voiceChannel = _client.Servers.FirstOrDefault().VoiceChannels.ToList().Find((Channel c) =>
                         {
+
                             return c.Name.ToLower().Contains("kek") == true || c.Name.ToLower().Contains("Normal") == true;
                         });
                         _vClient = await _client.GetService<AudioService>() // We use GetService to find the AudioService that we installed earlier. In previous versions, this was equivelent to _client.Audio()
@@ -227,7 +278,7 @@ namespace Discordconsole
                         if (isComplete == true || (isComplete == null && isComplete != false))
                         {
                             isComplete = false;
-                            isComplete = await SendAudioAsync(voiceChannel, _vClient);
+                            isComplete = await SendAudioAsync(voiceChannel, _vClient, token, 20);
                         }
 
                     }
@@ -236,7 +287,8 @@ namespace Discordconsole
 
 
             };
-            // Finds the first VoiceChannel on the server 'Music Bot Server'
+            #endregion
+            #region UsingAudio
 
             _client.UsingAudio(x =>
             {
@@ -245,66 +297,60 @@ namespace Discordconsole
 
             });
 
+            #endregion
+            #region ConnectingAndTokenPrompt
             _client.ExecuteAndWait(async () =>
-            {
-                Start:
-                string localToken = null;
-                StreamReader file = null;
-                try
-                {
-                    file = File.OpenText(AppDomain.CurrentDomain.BaseDirectory + "token.json");
-                    dynamic json = Json.Decode(file.ReadToEnd());
+               {
+                   Start:
+                   string localToken = null;
+                   StreamReader file = null;
+                   try
+                   {
+                       file = File.OpenText(AppDomain.CurrentDomain.BaseDirectory + "token.json");
+                       dynamic json = Json.Decode(file.ReadToEnd());
 
-                    localToken = json;
-                    file.Close();
+                       localToken = json;
+                       file.Close();
 
-                }
+                   }
 
-                catch (Exception e)
-                {
-                    if (!(e is FileNotFoundException) || !(file == null)) // If the file is here
-                        file.Close();
-                    Console.WriteLine("Please, insert the token here");
-                    Console.Out.Flush();
-                    string token = await GetInputAsync();
-                    using (StreamWriter Tempfile = new StreamWriter(AppDomain.CurrentDomain.BaseDirectory + "token.json"))
-                    {
+                   catch (Exception e)
+                   {
+                       if (!(e is FileNotFoundException) || !(file == null)) // If the file is here
+                           file.Close(); // close it xd
 
-                        Tempfile.WriteLine(Json.Encode(token));
-                        Tempfile.Close();
-                    }
-                    localToken = token;
-                }
+                       Console.WriteLine("Please, insert the token here");
+                       Console.Out.Flush();
+                       string token = await GetInputAsync();
+                       using (StreamWriter Tempfile = new StreamWriter(AppDomain.CurrentDomain.BaseDirectory + "token.json"))
+                       {
 
-                try
-                {
-                    await _client.Connect(localToken, TokenType.Bot);
-                }
-                catch (Exception)
-                {
-                    goto Start;
-                }
+                           Tempfile.WriteLine(Json.Encode(token));
+                           Tempfile.Close();
+                       }
+                       localToken = token;
+                   }
 
-
-                
-                SendConsole("Connected!");
-                _client.SetGame(new Game($"Keking everyone ! {version}"));
+                   try
+                   {
+                       await _client.Connect(localToken, TokenType.Bot);
+                   }
+                   catch (Exception)
+                   {
+                       goto Start;
+                   }
 
 
-                // --------------------------------
-                //         COMMANDS
-                // --------------------------------
-            });
-            AppDomain.CurrentDomain.ProcessExit += new EventHandler(OnProcessExit);
+
+                   SendConsole("Connected!");
+                   _client.SetGame(new Game($"Keking everyone ! {version}"));
 
 
-        }
 
-        private void OnProcessExit(object sender, EventArgs e)
-        {
-            _client.Disconnect();
-            NonBlockingConsole.WriteLine("Good bye !");
+
+               });
+            #endregion
+
         }
     }
-
 }
