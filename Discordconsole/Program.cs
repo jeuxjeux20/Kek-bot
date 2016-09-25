@@ -13,6 +13,8 @@ using System.Web.Helpers;
 using NAudio;
 using NAudio.Wave;
 using NAudio.CoreAudioApi;
+/* THIS IS TOTALLY CREEPERZEDGE'S BOT ! TOTALLY NOT STOLEN KEK */
+
 
 namespace Discordconsole
 {
@@ -199,7 +201,7 @@ namespace Discordconsole
                     if (new Random().Next(0, 3) == 1)
                     {
                         await _vClient.Join(voiceChannel);
-                        NonBlockingConsole.WriteLine("Is complete : " + isComplete);
+                        NonBlockingConsole.WriteLine("topkek " + isComplete);
                         if (isComplete == true || (isComplete == null && isComplete != false))
                         {
                             isComplete = false;
