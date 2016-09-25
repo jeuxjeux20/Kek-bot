@@ -13,6 +13,7 @@ using System.Web.Helpers;
 using NAudio;
 using NAudio.Wave;
 using NAudio.CoreAudioApi;
+using System.Collections.Generic;
 
 namespace Discordconsole
 {
@@ -82,7 +83,7 @@ namespace Discordconsole
                         for (int i = byteCount; i < blockSize; i++)
                             buffer[i] = 0;
                     }
-                    
+
                     _vClient.Send(buffer, 0, blockSize); // Send the buffer to Discord
                 }
             }
@@ -91,11 +92,11 @@ namespace Discordconsole
         public async Task<bool?> SendAudioAsync(Channel voiceChannel, IAudioClient _vClient, int quality = 20)
         {
 
-           return await Task.Run(() => SendAudio(voiceChannel, _vClient, quality));
-                
-         }
+            return await Task.Run(() => SendAudio(voiceChannel, _vClient, quality));
 
-        
+        }
+
+
         public void Start()
         {
 
@@ -142,6 +143,8 @@ namespace Discordconsole
             }
 
 
+
+
             //sends a message to channel with the given text
         });
             _client.GetService<CommandService>().CreateCommand("shutup") //create command greet (totally kek)
@@ -169,7 +172,28 @@ namespace Discordconsole
             Channel voiceChannel = null;
             IAudioClient _vClient = null;
             bool? isComplete = null;
- 
+            
+            _client.GetService<CommandService>().CreateCommand("stopmusic")
+            .Description("Stops the music")
+            .Do(async e =>
+                {
+
+                    try
+                    {
+                        await voiceChannel.LeaveAudio();
+                    }
+                    catch(NullReferenceException)
+                    {
+                        await e.Channel.SendMessage("There is no audio playing for now");
+                    }
+                    finally
+                    {
+                        await e.Channel.SendMessage("Audio stopped.");
+                    }
+                    
+                   });
+
+            
             _client.MessageReceived += async (s, e) =>
             {
                 //if (!e.Message.IsAuthor)
@@ -190,7 +214,7 @@ namespace Discordconsole
                         });
                         _vClient = await _client.GetService<AudioService>() // We use GetService to find the AudioService that we installed earlier. In previous versions, this was equivelent to _client.Audio()
                         .Join(voiceChannel);
-                        
+
                     }
                     catch (Exception)
                     {
@@ -217,7 +241,7 @@ namespace Discordconsole
             _client.UsingAudio(x =>
             {
                 x.Mode = AudioMode.Both;
-                
+
 
             });
 
@@ -245,7 +269,7 @@ namespace Discordconsole
                     string token = await GetInputAsync();
                     using (StreamWriter Tempfile = new StreamWriter(AppDomain.CurrentDomain.BaseDirectory + "token.json"))
                     {
-                        
+
                         Tempfile.WriteLine(Json.Encode(token));
                         Tempfile.Close();
                     }
