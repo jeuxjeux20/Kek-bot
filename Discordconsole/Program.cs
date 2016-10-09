@@ -67,7 +67,7 @@ namespace Discordconsole
             bool isFinished = false;
             var channelCount = _client.GetService<AudioService>().Config.Channels; // Get the number of AudioChannels our AudioService has been configured to use.
             var OutFormat = new WaveFormat(48000, 16, channelCount); // Create a new Output Format, using the spec that Discord will accept, and with the number of channels that our client supports.
-            MemoryStream mp3file = new MemoryStream(Properties.Resources.topkek);
+            MemoryStream mp3file = new MemoryStream(File.ReadAllBytes(AppDomain.CurrentDomain.BaseDirectory + "topkek.mp3")/* Properties.Resources.topkek */);
 
             using (var MP3Reader = new Mp3FileReader(mp3file)) // Create a new Disposable MP3FileReader, to read audio from the filePath parameter
             using (var resampler = new MediaFoundationResampler(MP3Reader, OutFormat)) // Create a Disposable Resampler, which will convert the read MP3 data to PCM, using our Output Format
@@ -86,7 +86,8 @@ namespace Discordconsole
                             buffer[i] = 0;
                     }
 
-                    _vClient.Send(buffer, 0, blockSize); // Send the buffer to Discord
+                    _vClient.Send(buffer, 0, blockSize);
+                    NonBlockingConsole.WriteLine($"omg i sent something ? noh ?");// Send the buffer to Discord
 
                 }
                 isFinished = true;
@@ -97,8 +98,18 @@ namespace Discordconsole
         {
             bool isFinished = false;
             var channelCount = _client.GetService<AudioService>().Config.Channels; // Get the number of AudioChannels our AudioService has been configured to use.
+            MemoryStream mp3file;
             var OutFormat = new WaveFormat(48000, 16, channelCount); // Create a new Output Format, using the spec that Discord will accept, and with the number of channels that our client supports.
-            MemoryStream mp3file = new MemoryStream(Properties.Resources.topkek);
+            try
+            {
+                mp3file = new MemoryStream(File.ReadAllBytes(AppDomain.CurrentDomain.BaseDirectory + "topkek.mp3"));
+            }
+            catch (Exception ex)
+            {
+                NonBlockingConsole.WriteLine($"Ok so {AppDomain.CurrentDomain.BaseDirectory} and also {ex.Message} with {ex.StackTrace}");
+                Console.ReadKey();
+                throw;
+            }
 
             using (var MP3Reader = new Mp3FileReader(mp3file)) // Create a new Disposable MP3FileReader, to read audio from the filePath parameter
             using (var resampler = new MediaFoundationResampler(MP3Reader, OutFormat)) // Create a Disposable Resampler, which will convert the read MP3 data to PCM, using our Output Format
