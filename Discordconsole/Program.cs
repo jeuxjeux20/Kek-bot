@@ -61,7 +61,7 @@ namespace Discordconsole
         }
         #endregion
         #region SendAudio
-        #region NoCancel
+
         public bool? SendAudio(Channel voiceChannel, IAudioClient _vClient, int quality = 20)
         {
             bool isFinished = false;
@@ -93,9 +93,6 @@ namespace Discordconsole
             }
             return isFinished;
         }
-        #endregion
-
-        #region WithCancel
         public bool? SendAudio(Channel voiceChannel, IAudioClient _vClient, CancellationTokenSource cancel, int quality = 20)
         {
             bool isFinished = false;
@@ -113,21 +110,30 @@ namespace Discordconsole
 
                 while ((byteCount = resampler.Read(buffer, 0, blockSize)) > 0 && !cancel.IsCancellationRequested) // Read audio into our buffer, and keep a loop open while data is present
                 {
-                    if (byteCount < blockSize)
+                    try
                     {
-                        // Incomplete Frame
-                        for (int i = byteCount; i < blockSize; i++)
-                            buffer[i] = 0;
-                    }
-                    if (!cancel.IsCancellationRequested)
-                        _vClient.Send(buffer, 0, blockSize); // Send the buffer to Discord
+                        if (byteCount < blockSize)
+                        {
+                            // Incomplete Frame
+                            for (int i = byteCount; i < blockSize; i++)
+                                buffer[i] = 0;
+                        }
+                        if (!cancel.IsCancellationRequested)
+                            _vClient.Send(buffer, 0, blockSize); // Send the buffer to Discord
 
+                    }
+
+
+                    catch (OperationCanceledException)
+                    {
+                        _vClient.Channel.LeaveAudio();
+                    }
                 }
-                isFinished = true;
             }
+            isFinished = true;
             return isFinished;
-        } 
-        #endregion
+        }
+
         private CancellationTokenSource token = new CancellationTokenSource();
 
         public async Task<bool?> SendAudioAsync(Channel voiceChannel, IAudioClient _vClient, int quality = 20)
@@ -141,10 +147,13 @@ namespace Discordconsole
             return await Task.Run(() => SendAudio(voiceChannel, _vClient, cancel, quality));
         }
         #endregion
-
+        ~Program()
+        {
+            NonBlockingConsole.WriteLine("Bye");  
+        }
         public void Start()
         {
-
+            
             #region InitClient
 
             _client = new DiscordClient();
@@ -222,7 +231,7 @@ namespace Discordconsole
         });
             Channel voiceChannel = null;
             IAudioClient _vClient = null;
-            bool? isComplete = null;
+            bool? isComplete = true;
 
             _client.GetService<CommandService>().CreateCommand("stopmusic")
             .Description("Stops the music")
@@ -247,7 +256,7 @@ namespace Discordconsole
 
                 });
             #endregion
-            #region MessageReceivedEvent
+
             _client.MessageReceived += async (s, e) =>
             {
                 //if (!e.Message.IsAuthor)
@@ -262,26 +271,31 @@ namespace Discordconsole
 
                     try
                     {
-                        voiceChannel = _client.Servers.FirstOrDefault().VoiceChannels.ToList().Find((Channel c) =>
+                        voiceChannel = _client.FindServers(e.Server.Name).FirstOrDefault().VoiceChannels.ToList().Find((Channel c) =>
                         {
 
-                            return c.Name.ToLower().Contains("kek") == true || c.Name.ToLower().Contains("Normal") == true;
+                            return c.Name.ToLower().Contains("kek") == true || c.Name.ToLower().Contains("General") == true;
                         });
                         _vClient = await _client.GetService<AudioService>() // We use GetService to find the AudioService that we installed earlier. In previous versions, this was equivelent to _client.Audio()
                         .Join(voiceChannel);
 
                     }
+                    catch (NullReferenceException)
+                    {
+                        await e.Channel.SendMessage("No voice channels that contains \"General\" or \"kek\" has been found. Canceling music :(");
+                    }
                     catch (Exception ex)
                     {
-                        await e.Channel.SendMessage($"```{ex.Message}```");
+                        await e.Channel.SendMessage($"wtf i dunno wat happened so i sent you that hope you like this ```{ex.Message} OMG AND ALSO {ex.StackTrace}```");
                     }
-                    if (new Random().Next(0, 3) == 1)
+                    if (new Random().Next(0, 3) == 1 && voiceChannel != null)
                     {
                         await _vClient.Join(voiceChannel);
+                        await e.Channel.SendMessage("LET THE KEK PLAYS");
                         NonBlockingConsole.WriteLine("Is complete : " + isComplete);
                         if (isComplete == true || isComplete == null)
                         {
-                            isComplete = false;  
+                            isComplete = false;
                             token = new CancellationTokenSource();
                             isComplete = await SendAudioAsync(voiceChannel, _vClient, token, 20);
                         }
@@ -292,9 +306,6 @@ namespace Discordconsole
 
 
             };
-            #endregion
-            #region UsingAudio
-
             _client.UsingAudio(x =>
             {
                 x.Mode = AudioMode.Both;
@@ -302,7 +313,6 @@ namespace Discordconsole
 
             });
 
-            #endregion
             #region ConnectingAndTokenPrompt
             _client.ExecuteAndWait(async () =>
                {
