@@ -333,20 +333,17 @@ namespace Discordconsole
 
                    try
                    {
-                       file = File.OpenText(AppDomain.CurrentDomain.BaseDirectory + "token.json");
+                       file = File.OpenText(AppDomain.CurrentDomain.BaseDirectory + "token.tok");
                    }
                    catch (Exception)
                    {
                        Console.WriteLine("! -> File not found or inacessible.");
                        goto Start;
                    }
-                   finally
-                   {
-                       dynamic json = Json.Decode(file.ReadToEnd());
-                       localToken = json;
-                       file.Close();
-                   }
 
+                       string json = file?.ReadToEnd();
+                       localToken = json;
+                       file?.Close();
                 #region kekkle
                 /* catch (Exception)
                            //{
@@ -374,6 +371,7 @@ namespace Discordconsole
                    }
                    catch (Exception)
                    {
+                       await Task.Delay(3000);
                            file?.Close(); // close it xd
                        
                        Console.WriteLine("Please, insert the token here");
@@ -388,14 +386,8 @@ namespace Discordconsole
                        goto Start;
                    }
 
-
-
                    SendConsole("Connected!");
                    _client.SetGame(new Game($"Keking everyone ! {version}"));
-
-
-
-
                });
             #endregion
 
