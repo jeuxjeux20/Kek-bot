@@ -327,42 +327,64 @@ namespace Discordconsole
             #region ConnectingAndTokenPrompt
             _client.ExecuteAndWait(async () =>
                {
-                   Start:
+                   
                    string localToken = null;
                    StreamReader file = null;
+
                    try
                    {
                        file = File.OpenText(AppDomain.CurrentDomain.BaseDirectory + "token.json");
+                   }
+                   catch (Exception)
+                   {
+                       Console.WriteLine("! -> File not found or inacessible.");
+                       goto Start;
+                   }
+                   finally
+                   {
                        dynamic json = Json.Decode(file.ReadToEnd());
-
                        localToken = json;
                        file.Close();
-
                    }
 
-                   catch (Exception e)
-                   {
-                       if (!(e is FileNotFoundException) || !(file == null)) // If the file is here
-                           file.Close(); // close it xd
+                #region kekkle
+                /* catch (Exception)
+                           //{
 
+                           //    if (!(file == null)) // If the file is here
+                           //        file.Close(); // close it xd
+
+                           //    Console.WriteLine("Please, insert the token here");
+                           //    Console.Out.Flush();
+                           //    string token = await GetInputAsync();
+                           //    using (StreamWriter Tempfile = new StreamWriter(AppDomain.CurrentDomain.BaseDirectory + "token.json"))
+                           //    {
+
+                           //        Tempfile.WriteLine(Json.Encode(token));
+                           //        Tempfile.Close();
+                           //    }
+                           //    localToken = token;
+                           //} */ 
+                #endregion
+                Start:
+                   try
+                   {
+                       Console.WriteLine($"Alright : {Environment.NewLine} da token is {localToken ?? "null :("}");
+                       await _client.Connect(localToken, TokenType.Bot);
+                   }
+                   catch (Exception)
+                   {
+                           file?.Close(); // close it xd
+                       
                        Console.WriteLine("Please, insert the token here");
                        Console.Out.Flush();
                        string token = await GetInputAsync();
                        using (StreamWriter Tempfile = new StreamWriter(AppDomain.CurrentDomain.BaseDirectory + "token.json"))
                        {
-
                            Tempfile.WriteLine(Json.Encode(token));
                            Tempfile.Close();
                        }
                        localToken = token;
-                   }
-
-                   try
-                   {
-                       await _client.Connect(localToken, TokenType.Bot);
-                   }
-                   catch (Exception)
-                   {
                        goto Start;
                    }
 
